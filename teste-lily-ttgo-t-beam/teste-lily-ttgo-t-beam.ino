@@ -102,7 +102,6 @@ void loop()
 
   if (SerialGPS.available()) {
     //Serial.write(SerialGPS.read());  // print anything comes in from the GPS
-
     read_sentence = SerialGPS.readStringUntil ( 13 ); // 13 = return (ASCII) 
     read_sentence.trim ();
     
