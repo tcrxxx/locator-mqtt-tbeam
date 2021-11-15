@@ -21,6 +21,7 @@ int state = 0; // steps through states
 HardwareSerial SerialGPS(1);
 
 String read_sentence;
+float coord[2];
 
 void setup()
 {
@@ -96,11 +97,9 @@ float convert_gps_coord ( float deg_min, String orientation) {
   } return dec_deg;
 }
 
-
-void loop()
-{
-
-  if (SerialGPS.available()) {
+void get_gps_coord () {
+  
+    if (SerialGPS.available()) {
     //Serial.write(SerialGPS.read());  // print anything comes in from the GPS
     read_sentence = SerialGPS.readStringUntil ( 13 ); // 13 = return (ASCII) 
     read_sentence.trim ();
@@ -125,9 +124,17 @@ void loop()
       Serial.print (latitude, 6 );
       Serial.print ( "," );
       Serial.println (longitude, 6 );
+
+      coord[0]=latitude;
+      coord[1]=longitude;
       
     }
 
   }
+}
+
+void loop()
+{
+  get_gps_coord();  
 
 }  // endofloop
