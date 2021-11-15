@@ -1,5 +1,16 @@
 
-/* ------------------------------------------- GPS DEFINES ----------------------------------------------------------*/
+/* ------------------------------------------- v SENSITIVE PROPS v ----------------------------------------------------------*/
+// Replace with your network credentials
+const char* ssid = "*"; //Set your ssid wifi network name
+const char* password = "*"; //Set password for ssid wifi network
+
+const char* mqttUser = "*";
+const char* mqttPassword = "*";
+
+/* ------------------------------------------- ^ SENSITIVE PROPS ^ ----------------------------------------------------------*/
+
+
+/* ------------------------------------------- v GPS DEFINES v ----------------------------------------------------------*/
 #define T_BEAM_V10  // AKA Rev1 for board versions T-beam_V1.0 and V1.1 (second board released)
 
 #if defined(T_BEAM_V07)
@@ -64,14 +75,10 @@ void initGPS(){
       delay(1000);
     } while (1);
 }
-/* ------------------------------------------- GPS DEFINES ----------------------------------------------------------*/
+/* ------------------------------------------- ^ GPS DEFINES ^ ----------------------------------------------------------*/
 
-/* ------------------------------------------- WIFI DEFINES ----------------------------------------------------------*/
+/* ------------------------------------------- v WIFI DEFINES v ----------------------------------------------------------*/
 #include <WiFi.h>
-
-// Replace with your network credentials
-const char* ssid = "*"; //Set your ssid wifi network
-const char* password = "*"; //Set password for ssid wifi network
 
 unsigned long previousMillis = 0;
 unsigned long interval = 30000; //Timeout to reconnect wifi
@@ -89,7 +96,52 @@ void initWiFi() {
   Serial.print("RRSI: ");
   Serial.println(WiFi.RSSI());
 }
-/* ------------------------------------------- WIFI DEFINES ----------------------------------------------------------*/
+/* ------------------------------------------- ^ WIFI DEFINES ^ ----------------------------------------------------------*/
+
+/* ------------------------------------------- v MQTT DEFINES v ----------------------------------------------------------*/
+
+#include <PubSubClient.h>
+const char* mqttServer = "192.168.1.165";
+const int mqttPort = 1884;
+WiFiClient espClient;
+PubSubClient clientMqtt(espClient);
+
+void callback(char* topic, byte* payload, unsigned int length) {
+
+    Serial.print("Message arrived in topic: ");
+    Serial.println(topic);
+
+    Serial.print("Message:");
+    for (int i = 0; i < length; i++) {
+        Serial.print((char)payload[i]);
+    }
+
+}
+
+void initMQTTClient(){
+
+    clientMqtt.setServer(mqttServer, mqttPort);
+    clientMqtt.setCallback(callback);
+
+    while (!clientMqtt.connected()) {
+        Serial.println("Connecting to MQTT…");
+        String clientId = "ESP32-LILLY-TTGO-T-BEAM-Client-";
+        clientId += String(random(0xffff), HEX);
+        if (clientMqtt.connect(clientId.c_str(), mqttUser, mqttPassword )) {
+            Serial.println("connected");
+        } else {
+            Serial.println("failed with state " + clientMqtt.state());
+            delay(2000);
+        }
+    }
+
+    Serial.print("Tentando enviar a mensagem");
+    //client.publish(“esp∕test”, “Hello from ESP32”);
+    //client.subscribe(“esp/test”);
+  
+}
+
+/* ------------------------------------------- ^ MQTT DEFINES ^ ----------------------------------------------------------*/
 
 
 void setup()
@@ -103,6 +155,8 @@ void setup()
 
   initWiFi();
 
+  initMQTTClient();
+  
 }  // endofsetup
 
 

@@ -1,17 +1,22 @@
 
-Prepare the Arduino IDE: Additional board manager - include this:
+Configurações de Boards:
+    Prepare the Arduino IDE: Additional board manager - include this:
 
-    https://dl.espressif.com/dl/package_esp32_index.json, http://arduino.esp8266.com/stable/package_esp8266com_index.json
+        https://dl.espressif.com/dl/package_esp32_index.json, http://arduino.esp8266.com/stable/package_esp8266com_index.json
 
-Install ESP32 board package from "Espressif Systems"
+    Install ESP32 board package from "Espressif Systems"
 
-LMIC LoRa Library from MCCI Catena
+    select board t-beam
 
-LoRa Library by Sandeep Mistry
+Bibliotecas :
 
-OLED display - U8g2 library by oliver
+    LoRa Library by Sandeep Mistry
 
-python -m pip install esptool
-python -m pip install pyserial
+    OLED display - U8g2 library by oliver
 
-select board t-beam
+    PubSubClientTools by Simon Christmann
+
+Dependências:
+
+    python -m pip install esptool
+    python -m pip install pyserial
