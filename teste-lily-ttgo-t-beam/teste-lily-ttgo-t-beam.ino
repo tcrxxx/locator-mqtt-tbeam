@@ -103,6 +103,9 @@ void initWiFi() {
 #include <PubSubClient.h>
 const char* mqttServer = "192.168.1.165";
 const int mqttPort = 1883;
+const char* MQTT_TOPIC = "teste/teste";
+String clientMqttId = "ESP32-LILLY-TTGO-T-BEAM-Client-";
+
 WiFiClient espClient;
 PubSubClient clientMqtt(espClient);
 
@@ -122,23 +125,23 @@ void initMQTTClient(){
 
     clientMqtt.setServer(mqttServer, mqttPort);
     clientMqtt.setCallback(callback);
-
+    
+    Serial.print("Connecting to MQTT");
+    clientMqttId += String(random(0xffff), HEX);
+    
     while (!clientMqtt.connected()) {
-        Serial.println("Connecting to MQTT…");
-        String clientId = "ESP32-LILLY-TTGO-T-BEAM-Client-";
-        clientId += String(random(0xffff), HEX);
-        if (clientMqtt.connect(clientId.c_str(), mqttUser, mqttPassword )) {
-            Serial.println("connected");
+        Serial.print(".");
+        if (clientMqtt.connect(clientMqttId.c_str(), mqttUser, mqttPassword )) {
+            Serial.println("Connected");
         } else {
             Serial.println("failed with state " + clientMqtt.state());
             delay(2000);
         }
     }
 
-    Serial.print("Tentando enviar a mensagem");
-    //client.publish(“esp∕test”, “Hello from ESP32”);
-    //client.subscribe(“esp/test”);
-  
+    //Serial.print("Tentando enviar a mensagem");
+    //clientMqtt.publish(TOPICO, "Hello from ESP32");
+    clientMqtt.subscribe(MQTT_TOPIC);
 }
 
 /* ------------------------------------------- ^ MQTT DEFINES ^ ----------------------------------------------------------*/
@@ -237,13 +240,36 @@ void wifi_check_n_reconnect(){
     previousMillis = currentMillis;
   }
 }
-/* ------------------------------------------- WIFI FUNCTIONS ----------------------------------------------------------*/
+/* ------------------------------------------- ^ WIFI FUNCTIONS ^ ----------------------------------------------------------*/
+
+/* ------------------------------------------- v MQTT FUNCTIONS v ----------------------------------------------------------*/
+void mqtt_check_n_reconnect(){
+
+  unsigned long currentMillis = millis();
+
+    if(!clientMqtt.connected() && (currentMillis - previousMillis >=interval)) {
+        Serial.print(millis());
+        Serial.print("Reconnecting to MQTT");
+        if (clientMqtt.connect(clientMqttId.c_str(), mqttUser, mqttPassword )) {
+            Serial.println("Connected");
+            previousMillis = currentMillis;
+        } else {
+            Serial.println("failed with state " + clientMqtt.state());
+            delay(2000);
+        }
+    }
+  
+}
+/* ------------------------------------------- ^ MQTT FUNCTIONS ^ ----------------------------------------------------------*/
 
 void loop()
 {
 
   wifi_check_n_reconnect();
+  mqtt_check_n_reconnect();
   
   get_gps_coord();  
 
+  clientMqtt.loop();
+  
 }  // endofloop
