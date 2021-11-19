@@ -1,4 +1,4 @@
-
+                          
 /* ------------------------------------------- v SENSITIVE PROPS v ----------------------------------------------------------*/
 // Replace with your network credentials
 const char* ssid = "*"; //Set your ssid wifi network name
@@ -102,7 +102,7 @@ void initWiFi() {
 
 #include <PubSubClient.h>
 const char* mqttServer = "192.168.1.165";
-const int mqttPort = 1884;
+const int mqttPort = 1883;
 WiFiClient espClient;
 PubSubClient clientMqtt(espClient);
 
