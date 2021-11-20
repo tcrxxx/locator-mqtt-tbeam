@@ -7,8 +7,33 @@ const char* password = "*"; //Set password for ssid wifi network
 const char* mqttUser = "*";
 const char* mqttPassword = "*";
 
+char* TEAM_COLOR = "BLUE";
+char* APPLICATION_NAME = "TBEAM-LOCATOR";
+
 /* ------------------------------------------- ^ SENSITIVE PROPS ^ ----------------------------------------------------------*/
 
+/* ------------------------------------------- v PRINCIPAL PROPS v ----------------------------------------------------------*/
+
+//---------------- WIFI:
+unsigned long previousMillis = 0;
+unsigned long interval = 30000; //Timeout to reconnect wifi
+
+//---------------- MQTT:
+const char* mqttServer = "192.168.1.165";
+const int mqttPort = 1883;
+String clientMqttId = "ESP32-LILLY-TTGO-T-BEAM-Client-";
+
+//Best pattern: "dt/<application>/<context>/<thing-name>/<dt-type>"
+char* PATH_SEPARATOR = "/";
+char* TELEMETRY_DT = "GPS-COORDINATES";
+char* TELEMETRY_CONTEXT = "V1.1";
+
+
+//char* MQTT_TOPIC_PUB = TELEMETRY_DT,PATH_SEPARATOR),APPLICATION_NAME),PATH_SEPARATOR),TELEMETRY_CONTEXT),PATH_SEPARATOR),TEAM_COLOR); 
+char* MQTT_TOPIC_PUB = "GPS-COORDINATES/TBEAM-LOCATOR/TBEAM/BLUE";//FIX-ME: usar consts
+char* MQTT_TOPIC_SUB = "teste/teste";
+
+/* ------------------------------------------- ^ PRINCIPAL PROPS ^ ----------------------------------------------------------*/
 
 /* ------------------------------------------- v GPS DEFINES v ----------------------------------------------------------*/
 #define T_BEAM_V10  // AKA Rev1 for board versions T-beam_V1.0 and V1.1 (second board released)
@@ -80,9 +105,6 @@ void initGPS(){
 /* ------------------------------------------- v WIFI DEFINES v ----------------------------------------------------------*/
 #include <WiFi.h>
 
-unsigned long previousMillis = 0;
-unsigned long interval = 30000; //Timeout to reconnect wifi
-
 void initWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -101,24 +123,23 @@ void initWiFi() {
 /* ------------------------------------------- v MQTT DEFINES v ----------------------------------------------------------*/
 
 #include <PubSubClient.h>
-const char* mqttServer = "192.168.1.165";
-const int mqttPort = 1883;
-const char* MQTT_TOPIC = "teste/teste";
-String clientMqttId = "ESP32-LILLY-TTGO-T-BEAM-Client-";
 
 WiFiClient espClient;
 PubSubClient clientMqtt(espClient);
 
+String height;
+String numSat;
+
 void callback(char* topic, byte* payload, unsigned int length) {
 
-    Serial.print("Message arrived in topic: ");
-    Serial.println(topic);
+    Serial.print("MQTT receive topic: ");
+    Serial.print(topic);
 
-    Serial.print("Message:");
+    Serial.print(" - message:");
     for (int i = 0; i < length; i++) {
         Serial.print((char)payload[i]);
     }
-
+    Serial.println();
 }
 
 void initMQTTClient(){
@@ -140,8 +161,15 @@ void initMQTTClient(){
     }
 
     //Serial.print("Tentando enviar a mensagem");
-    //clientMqtt.publish(TOPICO, "Hello from ESP32");
-    clientMqtt.subscribe(MQTT_TOPIC);
+    Serial.println("MQTT_TOPIC_PUB:GPS-COORDINATES/TBEAM-LOCATOR/TBEAM/BLUE/");//FIX-ME: usar consts;
+    
+    //char* mqttPubTopicInit = strcat(strcat(MQTT_TOPIC_PUB,PATH_SEPARATOR),"init");
+    char* mqttPubTopicInit = "GPS-COORDINATES/TBEAM-LOCATOR/TBEAM/BLUE/INIT";//FIX-ME: usar consts;
+    //char* mqttPubInitMessage = strcat("Iniciando dispositivo:",TEAM_COLOR);
+    char* mqttPubInitMessage = "Iniciando dispositivo:BLUE";//FIX-ME: usar consts;
+    
+    clientMqtt.publish(mqttPubTopicInit, mqttPubInitMessage);
+    clientMqtt.subscribe(MQTT_TOPIC_SUB);
 }
 
 /* ------------------------------------------- ^ MQTT DEFINES ^ ----------------------------------------------------------*/
@@ -221,10 +249,28 @@ void get_gps_coord () {
       coord[0]=latitude;
       coord[1]=longitude;
       
+      height = gps_hgt;
+      numSat = gps_sat;
+      
     }
 
   }
 }
+
+String getCoordStrJson(){
+   String str = "{\"h\":";
+          str.concat(height);
+          str.concat(", \"sat\":");
+          str.concat(numSat);
+          str.concat(", \"lat\":");
+          str.concat(coord[0]);
+          str.concat(", \"long\":");
+          str.concat(coord[1]);
+          str.concat("}");
+
+  return str;
+}
+
 /* ------------------------------------------- GPS FUNCTIONS ----------------------------------------------------------*/
 
 /* ------------------------------------------- WIFI FUNCTIONS ----------------------------------------------------------*/
@@ -260,6 +306,14 @@ void mqtt_check_n_reconnect(){
     }
   
 }
+
+void mqtt_publish_coord(){
+  String str = getCoordStrJson();
+  char msg[100];
+  str.toCharArray(msg,100);
+  clientMqtt.publish(MQTT_TOPIC_SUB, msg);//FIX-ME: MQTT_TOPIC_PUB
+}
+
 /* ------------------------------------------- ^ MQTT FUNCTIONS ^ ----------------------------------------------------------*/
 
 void loop()
@@ -271,5 +325,7 @@ void loop()
   get_gps_coord();  
 
   clientMqtt.loop();
+
+  mqtt_publish_coord();
   
 }  // endofloop
