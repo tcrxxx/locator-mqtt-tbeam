@@ -108,7 +108,7 @@ void initGPS(){
 void initWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi ..");
+  Serial.print("[WIFI] Connecting..");
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print('.');
     delay(1000);
@@ -132,7 +132,7 @@ String numSat;
 
 void callback(char* topic, byte* payload, unsigned int length) {
 
-    Serial.print("MQTT receive topic: ");
+    Serial.print("[MQTT] Receive topic: ");
     Serial.print(topic);
 
     Serial.print(" - message:");
@@ -147,7 +147,7 @@ void initMQTTClient(){
     clientMqtt.setServer(mqttServer, mqttPort);
     clientMqtt.setCallback(callback);
     
-    Serial.print("Connecting to MQTT");
+    Serial.print("[MQTT] Connecting");
     clientMqttId += String(random(0xffff), HEX);
     
     while (!clientMqtt.connected()) {
@@ -180,7 +180,7 @@ void setup()
 
   Serial.begin(115200);
   while (!Serial);  // Wait for user to open the terminal
-  Serial.println("Connected to Serial");
+  Serial.println("[SERIAL] Connected");
 
   initGPS();  
 
@@ -233,11 +233,12 @@ void get_gps_coord () {
       String gps_lat_o = sentence_sep (read_sentence, 3 );  // Orientation (N or S)
       String gps_lon_o = sentence_sep (read_sentence, 5 ); // Orientation (E or W)
 
-      Serial.print ( "[h:" );
+      Serial.print ("[GPS] ");
+      Serial.print ( "(h:" );
       Serial.print (gps_hgt);
       Serial.print ( " - sat:" );
       Serial.print (gps_sat); 
-      Serial.print ( "] " );
+      Serial.print ( ") " );
       
       float latitude = convert_gps_coord (gps_lat.toFloat (), gps_lat_o);
       float longitude = convert_gps_coord (gps_lon.toFloat (), gps_lon_o);
@@ -279,6 +280,7 @@ void wifi_check_n_reconnect(){
   unsigned long currentMillis = millis();
   
   if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    Serial.print("[WIFI]");
     Serial.print(millis());
     Serial.println("Reconnecting to WiFi...");
     WiFi.disconnect();
@@ -294,8 +296,9 @@ void mqtt_check_n_reconnect(){
   unsigned long currentMillis = millis();
 
     if(!clientMqtt.connected() && (currentMillis - previousMillis >=interval)) {
+        Serial.print("[MQTT]");
         Serial.print(millis());
-        Serial.print("Reconnecting to MQTT");
+        Serial.print("Reconnecting ");
         if (clientMqtt.connect(clientMqttId.c_str(), mqttUser, mqttPassword )) {
             Serial.println("Connected");
             previousMillis = currentMillis;
@@ -308,9 +311,13 @@ void mqtt_check_n_reconnect(){
 }
 
 void mqtt_publish_coord(){
+  
   String str = getCoordStrJson();
+  
   char msg[100];
   str.toCharArray(msg,100);
+
+  Serial.println("[MQTT] Publish Coordinates");
   clientMqtt.publish(MQTT_TOPIC_SUB, msg);//FIX-ME: MQTT_TOPIC_PUB
 }
 
