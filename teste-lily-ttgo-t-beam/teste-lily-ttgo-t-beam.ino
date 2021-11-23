@@ -114,8 +114,8 @@ void initWiFi() {
     delay(1000);
   }
   Serial.print("Local IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("RRSI: ");
+  Serial.print(WiFi.localIP());
+  Serial.print(" - RRSI: ");
   Serial.println(WiFi.RSSI());
 }
 /* ------------------------------------------- ^ WIFI DEFINES ^ ----------------------------------------------------------*/
@@ -174,6 +174,54 @@ void initMQTTClient(){
 
 /* ------------------------------------------- ^ MQTT DEFINES ^ ----------------------------------------------------------*/
 
+/* ------------------------------------------- v LORA DEFINES v ----------------------------------------------------------*/
+
+#include <SPI.h>
+#include <LoRa.h>
+#include <Wire.h>  
+//#include "SSD1306.h" 
+//#include "images.h"
+
+#define SCK     5    // GPIO5  -- SX1278's SCK
+#define MISO    19   // GPIO19 -- SX1278's MISnO
+#define MOSI    27   // GPIO27 -- SX1278's MOSI
+#define SS      18   // GPIO18 -- SX1278's CS
+#define RST     14   // GPIO14 -- SX1278's RESET
+#define DI0     26   // GPIO26 -- SX1278's IRQ(Interrupt Request)
+#define BAND  923E6
+
+unsigned int counter_lora = 0;
+
+String rssi = "RSSI --";
+String packSize = "--";
+String packet ;
+
+void initLora(){
+  pinMode(16,OUTPUT);
+  pinMode(2,OUTPUT);
+  
+  digitalWrite(16, LOW);    // set GPIO16 low to reset OLED
+  delay(50); 
+  digitalWrite(16, HIGH); // while OLED is running, must set GPIO16 in high
+  
+  Serial.println("[LORA] LoRa Sender Test");
+  
+  SPI.begin(SCK,MISO,MOSI,SS);
+  LoRa.setPins(SS,RST,DI0);
+  if (!LoRa.begin(923E6)) {
+    Serial.println("[LORA] Starting LoRa failed!");
+    while (1);
+  }
+  //LoRa.onReceive(cbk);
+  
+  LoRa.receive();
+
+  Serial.println("[LORA] init ok");
+  
+}
+
+/* ------------------------------------------- ^ LORA DEFINES ^ ----------------------------------------------------------*/
+
 
 void setup()
 {
@@ -187,6 +235,8 @@ void setup()
   initWiFi();
 
   initMQTTClient();
+
+  initLora();
   
 }  // endofsetup
 
@@ -311,17 +361,76 @@ void mqtt_check_n_reconnect(){
 }
 
 void mqtt_publish_coord(){
-  
+
+  //TODO: separar em método
   String str = getCoordStrJson();
-  
   char msg[100];
   str.toCharArray(msg,100);
 
-  Serial.println("[MQTT] Publish Coordinates");
+  Serial.println("[MQTT] Publish Topic: Coordinates");
   clientMqtt.publish(MQTT_TOPIC_SUB, msg);//FIX-ME: MQTT_TOPIC_PUB
 }
 
 /* ------------------------------------------- ^ MQTT FUNCTIONS ^ ----------------------------------------------------------*/
+
+/* ------------------------------------------- v LORA FUNCTIONS v ----------------------------------------------------------*/
+
+void sender_lora(){
+
+  //TODO: separar em método
+  String str = getCoordStrJson();
+  char msg[100];
+  str.toCharArray(msg,100);
+
+  Serial.print("[LORA] Counter Sender: " + String(counter_lora));
+
+  // send packet
+  LoRa.beginPacket();
+  //LoRa.print("[LORA] hello ");
+  //LoRa.print(counter_lora);
+  LoRa.print(msg);
+  LoRa.endPacket();
+
+  Serial.println();
+
+  counter_lora++;
+  digitalWrite(2, HIGH);   // turn the LED on (HIGH is the voltage level)
+  delay(1000);                       // wait for a second
+  digitalWrite(2, LOW);    // turn the LED off by making the voltage LOW
+  delay(1000);                       // wait for a second
+}
+
+void receive_lora(){
+  // try to parse packet
+  int packetSize = LoRa.parsePacket();
+
+  Serial.print("[LORA] Receive PacketSize #############################################:");
+  Serial.println(String(packetSize));
+  
+  if (packetSize) {
+
+    // received a packet
+    //Serial.print("Received packet '");
+    Serial.print("[LORA] Receive packet size");
+    
+    // read packet
+    while (LoRa.available()) {
+
+      //cbk(packetSize);
+      //Serial.println(String(packetSize));
+    
+      String LoRaData = LoRa.readString();
+      Serial.print(LoRaData); 
+    }
+  
+    // print RSSI of packet
+    Serial.print("' with RSSI ");
+    Serial.println(LoRa.packetRssi());
+    
+  }
+}
+
+/* ------------------------------------------- ^ LORA FUNCTIONS ^ ----------------------------------------------------------*/
 
 void loop()
 {
@@ -332,6 +441,9 @@ void loop()
   get_gps_coord();  
 
   clientMqtt.loop();
+
+  sender_lora();
+  receive_lora();
 
   mqtt_publish_coord();
   
