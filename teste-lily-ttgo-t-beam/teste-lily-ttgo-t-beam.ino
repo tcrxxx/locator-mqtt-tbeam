@@ -64,9 +64,9 @@ void initGPS(){
 
   #if defined(T_BEAM_V10)
     if (!axp.begin(Wire, AXP192_SLAVE_ADDRESS)) {
-      Serial.println("AXP192 Begin PASS");
+      Serial.println("[GPS ] AXP192 Begin PASS");
     } else {
-      Serial.println("AXP192 Begin FAIL");
+      Serial.println("[GPS ] AXP192 Begin FAIL");
     }
     axp.setPowerOutPut(AXP192_LDO3, AXP202_ON); // GPS main power
     axp.setPowerOutPut(AXP192_LDO2, AXP202_ON); // provides power to GPS backup battery
@@ -78,15 +78,15 @@ void initGPS(){
     // where ESP32 is on DCDC3 but remember to change I2C pins and GPS pins!
   #endif
     SerialGPS.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
-    Serial.println("All comms started");
+    Serial.println("[GPS ] All comms started");
     delay(100);
   
     do {
       if (myGPS.begin(SerialGPS)) {
-        Serial.println("Connected to GPS");
+        Serial.println("[GPS ] Connected to GPS");
         myGPS.setUART1Output(COM_TYPE_NMEA); //Set the UART port to output NMEA only
         myGPS.saveConfiguration(); //Save the current settings to flash and BBR
-        Serial.println("GPS serial connected, output set to NMEA");
+        Serial.println("[GPS ] GPS serial connected, output set to NMEA");
         myGPS.disableNMEAMessage(UBX_NMEA_GLL, COM_PORT_UART1);
         myGPS.disableNMEAMessage(UBX_NMEA_GSA, COM_PORT_UART1);
         myGPS.disableNMEAMessage(UBX_NMEA_GSV, COM_PORT_UART1);
@@ -94,7 +94,7 @@ void initGPS(){
         myGPS.disableNMEAMessage(UBX_NMEA_RMC, COM_PORT_UART1);
         myGPS.enableNMEAMessage(UBX_NMEA_GGA, COM_PORT_UART1);
         myGPS.saveConfiguration(); //Save the current settings to flash and BBR
-        Serial.println("Enabled/disabled NMEA sentences");
+        Serial.println("[GPS ] Enabled/disabled NMEA sentences");
         break;
       }
       delay(1000);
@@ -135,7 +135,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("[MQTT] Receive topic: ");
     Serial.print(topic);
 
-    Serial.print(" - message:");
+    Serial.print(" - message: ");
     for (int i = 0; i < length; i++) {
         Serial.print((char)payload[i]);
     }
@@ -153,7 +153,7 @@ void initMQTTClient(){
     while (!clientMqtt.connected()) {
         Serial.print(".");
         if (clientMqtt.connect(clientMqttId.c_str(), mqttUser, mqttPassword )) {
-            Serial.println("Connected");
+            Serial.println(" Connected!");
         } else {
             Serial.println("failed with state " + clientMqtt.state());
             delay(2000);
@@ -161,7 +161,7 @@ void initMQTTClient(){
     }
 
     //Serial.print("Tentando enviar a mensagem");
-    Serial.println("MQTT_TOPIC_PUB:GPS-COORDINATES/TBEAM-LOCATOR/TBEAM/BLUE/");//FIX-ME: usar consts;
+    Serial.println("[MQTT] MQTT_TOPIC_PUB: GPS-COORDINATES/TBEAM-LOCATOR/TBEAM/BLUE/");//FIX-ME: usar consts;
     
     //char* mqttPubTopicInit = strcat(strcat(MQTT_TOPIC_PUB,PATH_SEPARATOR),"init");
     char* mqttPubTopicInit = "GPS-COORDINATES/TBEAM-LOCATOR/TBEAM/BLUE/INIT";//FIX-ME: usar consts;
@@ -186,9 +186,15 @@ void initMQTTClient(){
 #define MISO    19   // GPIO19 -- SX1278's MISnO
 #define MOSI    27   // GPIO27 -- SX1278's MOSI
 #define SS      18   // GPIO18 -- SX1278's CS
-#define RST     14   // GPIO14 -- SX1278's RESET
+//#define RST     14   // GPIO14 -- SX1278's RESET
+#define RST     23   // GPIO14 -- SX1278's RESET
 #define DI0     26   // GPIO26 -- SX1278's IRQ(Interrupt Request)
-#define BAND  923E6
+
+//433E6 for Asia
+//866E6 for Europe
+//915E6 for North America
+//923E6
+#define BAND 915E6
 
 unsigned int counter_lora = 0;
 
@@ -204,19 +210,22 @@ void initLora(){
   delay(50); 
   digitalWrite(16, HIGH); // while OLED is running, must set GPIO16 in high
   
-  Serial.println("[LORA] LoRa Sender Test");
+  Serial.print("[LORA] LoRa Connecting.");
   
-  SPI.begin(SCK,MISO,MOSI,SS);
+  //SPI.begin(SCK,MISO,MOSI,SS);
   LoRa.setPins(SS,RST,DI0);
-  if (!LoRa.begin(923E6)) {
-    Serial.println("[LORA] Starting LoRa failed!");
-    while (1);
-  }
-  //LoRa.onReceive(cbk);
   
-  LoRa.receive();
+  while (!LoRa.begin(BAND)) {
+    Serial.print(".");
+    delay(500);
+  }
 
-  Serial.println("[LORA] init ok");
+  Serial.print(" Connected!");
+  Serial.print(" - rssi:");
+  Serial.print(LoRa.rssi());
+  Serial.print(" - Available:");
+  Serial.print(LoRa.available());
+  Serial.println();
   
 }
 
@@ -228,8 +237,12 @@ void setup()
 
   Serial.begin(115200);
   while (!Serial);  // Wait for user to open the terminal
-  Serial.println("[SERIAL] Connected");
+  Serial.println("[SERIAL] Connected!");
 
+  Serial.println("--------------------------------------------------------------");
+  Serial.println("[SETUP] Start ");
+  Serial.println("--------------------------------------------------------------");
+  
   initGPS();  
 
   initWiFi();
@@ -237,6 +250,10 @@ void setup()
   initMQTTClient();
 
   initLora();
+
+  Serial.println("--------------------------------------------------------------");
+  Serial.println("[SETUP] End ");
+  Serial.println("--------------------------------------------------------------");
   
 }  // endofsetup
 
@@ -283,7 +300,7 @@ void get_gps_coord () {
       String gps_lat_o = sentence_sep (read_sentence, 3 );  // Orientation (N or S)
       String gps_lon_o = sentence_sep (read_sentence, 5 ); // Orientation (E or W)
 
-      Serial.print ("[GPS] ");
+      Serial.print ("[GPS ] ");
       Serial.print ( "(h:" );
       Serial.print (gps_hgt);
       Serial.print ( " - sat:" );
@@ -362,13 +379,19 @@ void mqtt_check_n_reconnect(){
 
 void mqtt_publish_coord(){
 
+  char* TOPIC_TO_PUBLISH = MQTT_TOPIC_SUB;
+  
   //TODO: separar em método
   String str = getCoordStrJson();
   char msg[100];
   str.toCharArray(msg,100);
 
-  Serial.println("[MQTT] Publish Topic: Coordinates");
-  clientMqtt.publish(MQTT_TOPIC_SUB, msg);//FIX-ME: MQTT_TOPIC_PUB
+  Serial.print("[MQTT] Publish on Topic ");
+  Serial.print(TOPIC_TO_PUBLISH);
+  Serial.print(" - message: ");
+  Serial.println(msg);
+  
+  clientMqtt.publish(TOPIC_TO_PUBLISH, msg);//FIX-ME: MQTT_TOPIC_PUB
 }
 
 /* ------------------------------------------- ^ MQTT FUNCTIONS ^ ----------------------------------------------------------*/
@@ -382,59 +405,89 @@ void sender_lora(){
   char msg[100];
   str.toCharArray(msg,100);
 
-  Serial.print("[LORA] Counter Sender: " + String(counter_lora));
+  Serial.print("[LORA] Send pkg_number(" + String(counter_lora) + ")");
+  Serial.print(" - message: ");
+  Serial.print(msg);
 
   // send packet
   LoRa.beginPacket();
   //LoRa.print("[LORA] hello ");
-  //LoRa.print(counter_lora);
+  LoRa.write(counter_lora);
   LoRa.print(msg);
   LoRa.endPacket();
 
   Serial.println();
 
   counter_lora++;
+  blink_led();
+
+}
+
+void receiver_lora(int packetSize) {
+
+  Serial.print("[LORA] Receive (pkg_size:");
+  Serial.print(String(packetSize));
+  Serial.print(") - available: ");
+  Serial.println(LoRa.available());
+  
+  if (packetSize == 0) return;          // if there's no packet, return
+
+  // read packet header bytes:
+  int recipient = LoRa.read();          // recipient address
+  byte sender = LoRa.read();            // sender address
+  byte incomingMsgId = LoRa.read();     // incoming msg ID
+  byte incomingLength = LoRa.read();    // incoming msg length
+
+  String incoming = "";                 // payload of packet
+
+  while (LoRa.available()) {            // can't use readString() in callback, so
+    incoming += (char)LoRa.read();      // add bytes one by one
+  }
+
+  if (incomingLength != incoming.length()) {   // check length for error
+    Serial.println("[LORA] Receive: error: message length does not match length");
+    return;                             // skip rest of function
+  }
+
+  // if the recipient isn't this device or broadcast,
+  
+  //global defines:------------------------------------------
+  //byte localAddress = 0xBB;     // address of this device
+  //byte destination = 0xFF;      // destination to send to
+  //global defines:------------------------------------------
+  
+  //if (recipient != localAddress && recipient != 0xFF) {
+  //  Serial.println("[LORA] Receive: This message is not for me.");
+  //  return;                             // skip rest of function
+  //}
+
+  // if message is for this device, or broadcast, print details:
+  Serial.println("[LORA] Receive: Received from: 0x" + String(sender, HEX));
+  Serial.println("[LORA] Receive: Sent to: 0x" + String(recipient, HEX));
+  Serial.println("[LORA] Receive: Message ID: " + String(incomingMsgId));
+  Serial.println("[LORA] Receive: Message length: " + String(incomingLength));
+  Serial.println("[LORA] Receive: Message: " + incoming);
+  Serial.println("[LORA] Receive: RSSI: " + String(LoRa.packetRssi()));
+  Serial.println("[LORA] Receive: Snr: " + String(LoRa.packetSnr()));
+  Serial.println();
+}
+
+/* ------------------------------------------- ^ LORA FUNCTIONS ^ ----------------------------------------------------------*/
+
+void blink_led(){
   digitalWrite(2, HIGH);   // turn the LED on (HIGH is the voltage level)
   delay(1000);                       // wait for a second
   digitalWrite(2, LOW);    // turn the LED off by making the voltage LOW
   delay(1000);                       // wait for a second
 }
 
-void receive_lora(){
-  // try to parse packet
-  int packetSize = LoRa.parsePacket();
-
-  Serial.print("[LORA] Receive PacketSize #############################################:");
-  Serial.println(String(packetSize));
-  
-  if (packetSize) {
-
-    // received a packet
-    //Serial.print("Received packet '");
-    Serial.print("[LORA] Receive packet size");
-    
-    // read packet
-    while (LoRa.available()) {
-
-      //cbk(packetSize);
-      //Serial.println(String(packetSize));
-    
-      String LoRaData = LoRa.readString();
-      Serial.print(LoRaData); 
-    }
-  
-    // print RSSI of packet
-    Serial.print("' with RSSI ");
-    Serial.println(LoRa.packetRssi());
-    
-  }
-}
-
-/* ------------------------------------------- ^ LORA FUNCTIONS ^ ----------------------------------------------------------*/
-
 void loop()
 {
 
+  Serial.println("--------------------------------------------------------------");
+  Serial.println("[LOOP] Start ");
+  Serial.println("--------------------------------------------------------------");
+  
   wifi_check_n_reconnect();
   mqtt_check_n_reconnect();
   
@@ -443,8 +496,13 @@ void loop()
   clientMqtt.loop();
 
   sender_lora();
-  receive_lora();
 
+  receiver_lora(LoRa.parsePacket());
+  
   mqtt_publish_coord();
+
+  Serial.println("--------------------------------------------------------------");
+  Serial.println("[LOOP] End ");
+  Serial.println("--------------------------------------------------------------");
   
 }  // endofloop
